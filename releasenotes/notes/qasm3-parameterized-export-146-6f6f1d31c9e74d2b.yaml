@@ -27,16 +27,14 @@ fixes:
     of the destination, and otherwise mis-classified instructions. This also
     ensures composed parameterized circuits export correctly with
     `to_qasm3()`.
-  - |
-    Parameterized gate insertion now raises `std::invalid_argument` when the
-    Qiskit C API reports `QkExitCode_ParameterNameConflict`, so distinct
-    `Parameter` objects with the same symbol name are rejected before the C++
-    circuit is mutated.
 issues:
   - |
     `QuantumCircuit::parameter_symbols()` (and therefore the OpenQASM 3
     exporter) identifies parameters by their original symbol name. Distinct
-    `Parameter` objects that share a name are not supported, because qiskit-cpp
-    cannot yet disambiguate parameters by UUID through the C-API. The original
-    symbol name is used for the exported input name and for the
-    `parameter_symbols()` list.
+    `Parameter` objects that share a name cannot be disambiguated, because
+    qiskit-cpp cannot yet identify parameters by UUID through the C-API. Such
+    duplicates collapse onto a single shared symbol of that name rather than
+    being rejected: detecting them would require copying the circuit on every
+    parameterized gate insertion, which is too expensive. The exported
+    OpenQASM 3 stays valid but binds the colliding gates to the same `input`
+    value, so use a unique name per distinct parameter.

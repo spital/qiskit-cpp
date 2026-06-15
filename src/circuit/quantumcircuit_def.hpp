@@ -25,7 +25,6 @@
 #include <iomanip>
 #include <cstring>
 #include <cassert>
-#include <stdexcept>
 
 #include "utils/types.hpp"
 #include "circuit/parameter.hpp"
@@ -82,29 +81,6 @@ protected:
 
 	reg_t qubit_map_;									 // qubit map caused by transpiling
 	std::vector<std::pair<uint_t, uint_t>> measure_map_; // a list of pair of qubit and clbit for measure
-
-	static void check_parameterized_gate_result(const QkExitCode result)
-	{
-		if (result == QkExitCode_Success) {
-			return;
-		}
-		if (result == QkExitCode_ParameterNameConflict) {
-			throw std::invalid_argument(
-				"Duplicate parameter symbols are not supported in Qiskit C++ "
-				"until the Qiskit C API can identify parameters by UUID.");
-		}
-		throw std::runtime_error("Failed to add parameterized gate to circuit.");
-	}
-
-	void add_parameterized_gate(QkGate gate, const std::uint32_t *qubits, const QkParam *const *params)
-	{
-		std::shared_ptr<rust_circuit> preflight(qk_circuit_copy(rust_circuit_.get()), qk_circuit_free);
-		if (preflight == nullptr) {
-			throw std::runtime_error("Failed to copy circuit before adding parameterized gate.");
-		}
-		check_parameterized_gate_result(qk_circuit_parameterized_gate(preflight.get(), gate, qubits, params));
-		check_parameterized_gate_result(qk_circuit_parameterized_gate(rust_circuit_.get(), gate, qubits, params));
-	}
 
 	class ScopedCircuitInstruction {
 		QkCircuitInstruction instruction_;
@@ -453,7 +429,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit};
 		QkParam* params[] = {phase.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_Phase, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_Phase, qubits, params);
 	}
 
 	/// @brief Apply RGate
@@ -477,7 +453,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit};
 		QkParam* params[] = {theta.qiskit_param_.get(), phi.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_R, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_R, qubits, params);
 	}
 
 	/// @brief Apply RXGate
@@ -498,7 +474,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit};
 		QkParam* params[] = {theta.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_RX, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_RX, qubits, params);
 	}
 
 	/// @brief Apply RYGate
@@ -519,7 +495,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit};
 		QkParam* params[] = {theta.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_RY, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_RY, qubits, params);
 	}
 
 	/// @brief Apply RZGate
@@ -540,7 +516,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit};
 		QkParam* params[] = {theta.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_RZ, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_RZ, qubits, params);
 	}
 
 	/// @brief Apply SGate
@@ -620,7 +596,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit};
 		QkParam* params[] = {theta.qiskit_param_.get(), phi.qiskit_param_.get(), lam.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_U, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_U, qubits, params);
 	}
 
 	/// @brief Apply U1Gate
@@ -641,7 +617,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit};
 		QkParam* params[] = {theta.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_U1, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_U1, qubits, params);
 	}
 
 	/// @brief Apply U2Gate
@@ -665,7 +641,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit};
 		QkParam* params[] = {phi.qiskit_param_.get(), lam.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_U2, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_U2, qubits, params);
 	}
 
 	/// @brief Apply U3Gate
@@ -691,7 +667,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit};
 		QkParam* params[] = {theta.qiskit_param_.get(), phi.qiskit_param_.get(), lam.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_U3, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_U3, qubits, params);
 	}
 
 	/// @brief Apply unitary gate specified by unitary to qubits
@@ -807,7 +783,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)cqubit, (std::uint32_t)tqubit};
 		QkParam* params[] = {phase.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_CPhase, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_CPhase, qubits, params);
 	}
 
 	/// @brief Apply controlled RXGate
@@ -830,7 +806,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)cqubit, (std::uint32_t)tqubit};
 		QkParam* params[] = {theta.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_CRX, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_CRX, qubits, params);
 	}
 
 	/// @brief Apply controlled RYGate
@@ -853,7 +829,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)cqubit, (std::uint32_t)tqubit};
 		QkParam* params[] = {theta.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_CRY, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_CRY, qubits, params);
 	}
 
 	/// @brief Apply controlled RZGate
@@ -876,7 +852,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)cqubit, (std::uint32_t)tqubit};
 		QkParam* params[] = {theta.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_CRZ, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_CRZ, qubits, params);
 	}
 
 	/// @brief Apply CSGate
@@ -934,7 +910,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)cqubit, (std::uint32_t)tqubit};
 		QkParam* params[] = {theta.qiskit_param_.get(), phi.qiskit_param_.get(), lam.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_CU, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_CU, qubits, params);
 	}
 
 	/// @brief Apply CU1Gate
@@ -958,7 +934,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)cqubit, (std::uint32_t)tqubit};
 		QkParam* params[] = {theta.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_CU1, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_CU1, qubits, params);
 	}
 
 	/// @brief Apply CU3Gate
@@ -986,7 +962,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)cqubit, (std::uint32_t)tqubit};
 		QkParam* params[] = {theta.qiskit_param_.get(), phi.qiskit_param_.get(), lam.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_CU3, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_CU3, qubits, params);
 	}
 
 	/// @brief Apply RXXGate
@@ -1009,7 +985,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit1, (std::uint32_t)qubit2};
 		QkParam* params[] = {theta.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_RXX, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_RXX, qubits, params);
 	}
 
 	/// @brief Apply RYYGate
@@ -1032,7 +1008,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit1, (std::uint32_t)qubit2};
 		QkParam* params[] = {theta.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_RYY, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_RYY, qubits, params);
 	}
 
 	/// @brief Apply RZZGate
@@ -1055,7 +1031,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit1, (std::uint32_t)qubit2};
 		QkParam* params[] = {theta.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_RZZ, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_RZZ, qubits, params);
 	}
 
 	/// @brief Apply RZXGate
@@ -1078,7 +1054,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit1, (std::uint32_t)qubit2};
 		QkParam* params[] = {theta.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_RZX, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_RZX, qubits, params);
 	}
 
 	/// @brief Apply XXminusYY
@@ -1104,7 +1080,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit1, (std::uint32_t)qubit2};
 		QkParam* params[] = {theta.qiskit_param_.get(), beta.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_XXMinusYY, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_XXMinusYY, qubits, params);
 	}
 
 	/// @brief Apply XXplusYY
@@ -1130,7 +1106,7 @@ public:
 		std::uint32_t qubits[] = {(std::uint32_t)qubit1, (std::uint32_t)qubit2};
 		QkParam* params[] = {theta.qiskit_param_.get(), beta.qiskit_param_.get()};
 		pre_add_gate();
-		add_parameterized_gate(QkGate_XXPlusYY, qubits, params);
+		qk_circuit_parameterized_gate(rust_circuit_.get(), QkGate_XXPlusYY, qubits, params);
 	}
 
 	/// @brief Apply CCXGate
@@ -1413,7 +1389,7 @@ public:
 			} else if (kind == QkOperationKind_Barrier) {
 				qk_circuit_barrier(rust_circuit_.get(), vqubits.data(), (uint32_t)vqubits.size());
 			} else if (kind == QkOperationKind_Gate) {
-				add_parameterized_gate(name_map[op.name].gate_map(), vqubits.data(), op.params);
+				qk_circuit_parameterized_gate(rust_circuit_.get(), name_map[op.name].gate_map(), vqubits.data(), op.params);
 			} else if (kind == QkOperationKind_Unitary) {
 				// TO DO : how we can get unitary matrix from Rust ?
 			}
@@ -1442,7 +1418,7 @@ public:
 					for (auto &p : op.params()) {
 						params.push_back(p.qiskit_param_.get());
 					}
-					add_parameterized_gate(op.gate_map(), vqubits.data(), params.data());
+					qk_circuit_parameterized_gate(rust_circuit_.get(), op.gate_map(), vqubits.data(), params.data());
 				}
 				else
 					qk_circuit_gate(rust_circuit_.get(), op.gate_map(), vqubits.data(), nullptr);
@@ -1471,7 +1447,7 @@ public:
 					for (auto &p : op.params()) {
 						params.push_back(p.qiskit_param_.get());
 					}
-					add_parameterized_gate(op.gate_map(), qubits.data(), params.data());
+					qk_circuit_parameterized_gate(rust_circuit_.get(), op.gate_map(), qubits.data(), params.data());
 				}
 				else
 					qk_circuit_gate(rust_circuit_.get(), op.gate_map(), qubits.data(), nullptr);
@@ -1505,7 +1481,7 @@ public:
 				for (auto &p : inst.instruction().params()) {
 					params.push_back(p.qiskit_param_.get());
 				}
-				add_parameterized_gate(inst.instruction().gate_map(), vqubits.data(), params.data());
+				qk_circuit_parameterized_gate(rust_circuit_.get(), inst.instruction().gate_map(), vqubits.data(), params.data());
 			}
 			else
 				qk_circuit_gate(rust_circuit_.get(), inst.instruction().gate_map(), vqubits.data(), nullptr);
@@ -1605,12 +1581,13 @@ public:
 	///   implementation with a C-API once one is available. Until then, names
 	///   must be recoverable as OpenQASM identifier tokens; this method throws
 	///   if the harvested names do not match the Rust-side parameter count.
-	/// @note Limitation: distinct ``Parameter`` objects that share a name are
-	///   treated as a single symbol. qiskit-cpp cannot disambiguate Parameters
-	///   by UUID through the C-API, and the Qiskit C-API reports same-name
-	///   distinct symbols with ``QkExitCode_ParameterNameConflict``. The
-	///   original symbol name is used (the same name keyed by SamplerPub /
-	///   EstimatorPub parameter sets).
+	/// @note Limitation: distinct ``Parameter`` objects that share the same name
+	///   are treated as a single symbol. qiskit-cpp cannot disambiguate
+	///   Parameters by UUID through the C-API, so this case is neither detected
+	///   nor rejected; the colliding gates simply reference one shared symbol of
+	///   that name in the exported OpenQASM 3. Use a unique name per distinct
+	///   parameter. The original symbol name is preserved (the same name keyed
+	///   by SamplerPub / EstimatorPub parameter sets).
 	std::vector<std::string> parameter_symbols(void) const;
 
 	/// @brief Serialize a QuantumCircuit object as an OpenQASM3 string.

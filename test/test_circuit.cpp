@@ -1070,31 +1070,33 @@ static int test_parameter_symbols_unsupported_name(void) {
     return EqualityError;
 }
 
-static int test_parameter_symbols_duplicate_name_conflict(void) {
-    auto expect_duplicate_error = [](const std::invalid_argument &err, const std::string &label) -> bool {
-        const std::string message = err.what();
-        if (message.find("Duplicate parameter symbols are not supported") == std::string::npos) {
-            std::cerr << "  parameter_symbols_duplicate_name_conflict test : " << label
-                << " unexpected error: " << message << std::endl;
-            return false;
-        }
-        return true;
-    };
-
+// Documented limitation (per maintainer review on PR #159): qiskit-cpp cannot
+// disambiguate distinct Parameter objects that share a name (no UUID through the
+// C-API), so they collapse onto a single shared symbol of that name. This case
+// is deliberately not detected or rejected -- preflight-copying the circuit on
+// every parameterized gate just to detect it is too expensive. The exported
+// OpenQASM 3 stays valid; the colliding gates simply bind the same input. Use a
+// unique name per distinct parameter to avoid this.
+static int test_parameter_symbols_duplicate_name_limitation(void) {
+    // Two distinct Parameter("a") objects across separate gates collapse to one
+    // symbol "a"; both gates reference it and the QASM remains valid.
     {
         QuantumCircuit circ(2, 0);
         auto a0 = Parameter("a");
         auto a1 = Parameter("a");
         circ.rx(a0, 0);
+        circ.ry(a1, 1);
 
-        try {
-            circ.ry(a1, 1);
-        } catch (const std::invalid_argument &err) {
-            if (!expect_duplicate_error(err, "direct gate")) {
-                return EqualityError;
-            }
-        } catch (...) {
-            std::cerr << "  parameter_symbols_duplicate_name_conflict test : direct gate wrong exception type" << std::endl;
+        if (circ.num_parameters() != 1) {
+            std::cerr << "  parameter_symbols_duplicate_name_limitation test : expected 1 collapsed "
+                << "symbol, got " << circ.num_parameters() << std::endl;
+            return EqualityError;
+        }
+        const auto symbols = circ.parameter_symbols();
+        if (symbols != std::vector<std::string>({"a"})) {
+            std::cerr << "  parameter_symbols_duplicate_name_limitation test : unexpected symbol list, got:";
+            for (const auto &s : symbols) std::cerr << " " << s;
+            std::cerr << std::endl;
             return EqualityError;
         }
 
@@ -1103,97 +1105,27 @@ static int test_parameter_symbols_duplicate_name_conflict(void) {
             "include \"stdgates.inc\";\n"
             "input float[64] a;\n"
             "qubit[2] q;\n"
-            "rx(a) q[0];\n";
+            "rx(a) q[0];\n"
+            "ry(a) q[1];\n";
         if (circ.to_qasm3() != expected) {
-            std::cerr << "  parameter_symbols_duplicate_name_conflict test : direct gate mutated circuit" << std::endl;
+            std::cerr << "  parameter_symbols_duplicate_name_limitation test : \n    expected:\n" << expected
+                << "\n    actual:\n" << circ.to_qasm3() << std::endl;
             return EqualityError;
         }
     }
 
-    {
-        QuantumCircuit dst(1, 0);
-        QuantumCircuit src(1, 0);
-        auto a0 = Parameter("a");
-        auto a1 = Parameter("a");
-        dst.rx(a0, 0);
-        src.ry(a1, 0);
-
-        try {
-            dst.append(src[0]);
-        } catch (const std::invalid_argument &err) {
-            if (!expect_duplicate_error(err, "append")) {
-                return EqualityError;
-            }
-        } catch (...) {
-            std::cerr << "  parameter_symbols_duplicate_name_conflict test : append wrong exception type" << std::endl;
-            return EqualityError;
-        }
-
-        const std::string expected =
-            "OPENQASM 3.0;\n"
-            "include \"stdgates.inc\";\n"
-            "input float[64] a;\n"
-            "qubit[1] q;\n"
-            "rx(a) q[0];\n";
-        if (dst.to_qasm3() != expected) {
-            std::cerr << "  parameter_symbols_duplicate_name_conflict test : append mutated circuit" << std::endl;
-            return EqualityError;
-        }
-    }
-
-    {
-        QuantumCircuit dst(1, 0);
-        QuantumCircuit src(1, 0);
-        auto a0 = Parameter("a");
-        auto a1 = Parameter("a");
-        dst.rx(a0, 0);
-        src.ry(a1, 0);
-
-        try {
-            dst.compose(src, reg_t({0}), reg_t({}));
-        } catch (const std::invalid_argument &err) {
-            if (!expect_duplicate_error(err, "compose")) {
-                return EqualityError;
-            }
-        } catch (...) {
-            std::cerr << "  parameter_symbols_duplicate_name_conflict test : compose wrong exception type" << std::endl;
-            return EqualityError;
-        }
-
-        const std::string expected =
-            "OPENQASM 3.0;\n"
-            "include \"stdgates.inc\";\n"
-            "input float[64] a;\n"
-            "qubit[1] q;\n"
-            "rx(a) q[0];\n";
-        if (dst.to_qasm3() != expected) {
-            std::cerr << "  parameter_symbols_duplicate_name_conflict test : compose mutated circuit" << std::endl;
-            return EqualityError;
-        }
-    }
-
+    // The same collapse happens for duplicate names within a single
+    // multi-parameter gate.
     {
         QuantumCircuit circ(1, 0);
-        auto a0 = Parameter("a");
-        auto a1 = Parameter("a");
+        auto b0 = Parameter("b");
+        auto b1 = Parameter("b");
+        circ.r(b0, b1, 0);
 
-        try {
-            circ.r(a0, a1, 0);
-        } catch (const std::invalid_argument &err) {
-            if (!expect_duplicate_error(err, "same gate")) {
-                return EqualityError;
-            }
-        } catch (...) {
-            std::cerr << "  parameter_symbols_duplicate_name_conflict test : same gate wrong exception type" << std::endl;
-            return EqualityError;
-        }
-
-        const std::string expected =
-            "OPENQASM 3.0;\n"
-            "include \"stdgates.inc\";\n"
-            "qubit[1] q;\n";
-        if (circ.num_parameters() != 0 || circ.to_qasm3() != expected) {
-            std::cerr << "  parameter_symbols_duplicate_name_conflict test : same gate mutated circuit" << std::endl;
+        if (circ.num_parameters() != 1
+            || circ.parameter_symbols() != std::vector<std::string>({"b"})) {
+            std::cerr << "  parameter_symbols_duplicate_name_limitation test : multi-param gate did "
+                << "not collapse to a single symbol" << std::endl;
             return EqualityError;
         }
     }
@@ -1288,7 +1220,7 @@ int test_circuit(int argc, char** argv) {
     num_failed += RUN_TEST(test_to_qasm3_multi_regs);
     num_failed += RUN_TEST(test_parameter_symbols);
     num_failed += RUN_TEST(test_parameter_symbols_unsupported_name);
-    num_failed += RUN_TEST(test_parameter_symbols_duplicate_name_conflict);
+    num_failed += RUN_TEST(test_parameter_symbols_duplicate_name_limitation);
     num_failed += RUN_TEST(test_to_qasm3_compose_parameterized);
     num_failed += RUN_TEST(test_to_qasm3_append_parameterized);
     num_failed += RUN_TEST(test_to_qasm3_parameterized);
